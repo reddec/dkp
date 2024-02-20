@@ -11,7 +11,7 @@ from datetime import datetime
 from dataclasses import dataclass
 from functools import cached_property
 from pathlib import Path
-from typing import Dict, List, Set
+from typing import Dict, List, Set, Union
 
 
 @dataclass
@@ -112,7 +112,7 @@ def inspect(project_name: str) -> Compose:
     return Compose(parsed=parsed, files=files)
 
 
-def template_local(file: str | Path, **args) -> str:
+def template_local(file: Union[str, Path], **args) -> str:
     file = Path(__file__).parent / file
     content = file.read_text()
     for k, v in args.items():
