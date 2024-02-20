@@ -73,6 +73,19 @@ class Compose:
         return ans
 
 
+def is_relative_to(src: Path, dest: Path) -> bool:
+    src = src.absolute()
+    dest = dest.absolute()
+    if hasattr(dest, "is_relative_to"):
+        return dest.is_relative_to(src)
+    # shim for 3.8 for Path.is_relative_to
+    try:
+        dest.relative_to(src)
+        return True
+    except:
+        return False
+
+
 def inspect(project_name: str) -> Compose:
     # get config files
     res = run(
@@ -258,7 +271,7 @@ def backup(
 
         # copy relative binds
         for bind in info.binds:
-            if not bind.is_relative_to(info.work_dir):
+            if not is_relative_to(info.work_dir, bind):
                 print("skipping", str(bind), "-", "absolute mount path")
                 continue
             rel_path = bind.relative_to(info.work_dir)
