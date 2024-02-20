@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "dkp"
-version = "v0.1.0"
+version = "v0.0.7"
 description = "DocKer compose Packer"
 authors = ["Aleksandr Baryshnikov <owner@reddec.net>"]
 license = "MIT"
