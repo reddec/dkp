@@ -84,6 +84,13 @@ jobs:
           sudo apt install -y python3-poetry
           poetry build
 
+      - name: Create release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          tag: ${{ github.ref_name }}
+        run: |
+          gh release create --generate-notes "$tag" dist/*
+
       - name: Publish package
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
