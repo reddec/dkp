@@ -22,7 +22,7 @@ flowchart TD
 For backup you need:
 
 - gpg
-- python3 3.8+ (see tests in workflow)
+- python 3.8+ (see tests in workflow)
 - sh
 - tar
 - gzip
