@@ -1,0 +1,13 @@
+services:
+  dummy:
+    image: busybox
+    restart: no
+    command:
+    - tail
+    - -f
+    - /etc/hosts
+    volumes:
+      - shared:/data
+
+volumes:
+  shared: {}
