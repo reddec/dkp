@@ -43,10 +43,6 @@ For restore you need:
 
 Alternative - just download [dkp/dkp.py] and make it executable.
 
-**Docker**
-
-    docker run --rm -e PASSPHRASE=foobar -v $(pwd):/data ghcr.io/reddec/dkp -o /data/backup.bin <project>
-
 ## Backward compatibility
 
 Once backup created, the version of DKP doesn't matter anymore since archive is
