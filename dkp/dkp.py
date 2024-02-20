@@ -11,7 +11,7 @@ from datetime import datetime
 from dataclasses import dataclass
 from functools import cached_property
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, Set
 
 
 @dataclass
@@ -48,14 +48,14 @@ class Compose:
         return self.files[0].absolute().parent
 
     @cached_property
-    def volumes(self) -> set[str]:
+    def volumes(self) -> Set[str]:
         ans = set()
         for volume in self.parsed.get("volumes", {}).values():
             ans.add(volume["name"])
         return ans
 
     @cached_property
-    def binds(self) -> set[Path]:
+    def binds(self) -> Set[Path]:
         ans = set()
         for service in self.parsed.get("services", {}).values():
             for volume in service.get("volumes", []):
@@ -64,7 +64,7 @@ class Compose:
         return ans
 
     @cached_property
-    def images(self) -> set[str]:
+    def images(self) -> Set[str]:
         ans = set()
         for service in self.parsed.get("services", {}).values():
             image = service.get("image")
