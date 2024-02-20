@@ -16,19 +16,31 @@ from typing import Dict, List, Set, Union
 
 @dataclass
 class Compose:
+    # parsed compose file (aggregated)
     parsed: Dict
+    # list of source compose files
     files: List[Path]
 
     @property
     def name(self) -> str:
+        """
+        Normalized project name
+        """
         return self.parsed["name"]
 
     @property
     def env_file(self) -> Path:
+        """
+        Path to default env file.
+        The function doesn't check existence of the file.
+        """
         return self.files[0].parent / ".env"
 
     @cached_property
     def environments(self) -> Dict[str, Dict]:
+        """
+        Parsed environment variables per service.
+        """
         ans = {}
         for name, service in self.parsed.get("services", {}).items():
             ans[name] = service.get("environment", {})
@@ -36,6 +48,9 @@ class Compose:
 
     @cached_property
     def has_conflicted_files(self) -> bool:
+        """
+        True if there are at least two docker-compose files with the same base names
+        """
         names = set()
         for file in self.files:
             if file.name in names:
@@ -45,10 +60,16 @@ class Compose:
 
     @cached_property
     def work_dir(self) -> Path:
+        """
+        Main working directory based on first docker-compose file.
+        """
         return self.files[0].absolute().parent
 
     @cached_property
     def volumes(self) -> Set[str]:
+        """
+        List of all known volumes within project
+        """
         ans = set()
         for volume in self.parsed.get("volumes", {}).values():
             ans.add(volume["name"])
@@ -56,6 +77,9 @@ class Compose:
 
     @cached_property
     def binds(self) -> Set[Path]:
+        """
+        List of all known binds (non-volume mounts)
+        """
         ans = set()
         for service in self.parsed.get("services", {}).values():
             for volume in service.get("volumes", []):
@@ -65,6 +89,9 @@ class Compose:
 
     @cached_property
     def images(self) -> Set[str]:
+        """
+        List of all used images in services
+        """
         ans = set()
         for service in self.parsed.get("services", {}).values():
             image = service.get("image")
@@ -74,6 +101,10 @@ class Compose:
 
 
 def is_relative_to(src: Path, dest: Path) -> bool:
+    """
+    Checks if dest is relative to src. Same as Path.is_relative_to
+    but with shim for python 3.8
+    """
     src = src.absolute()
     dest = dest.absolute()
     if hasattr(dest, "is_relative_to"):
@@ -87,6 +118,11 @@ def is_relative_to(src: Path, dest: Path) -> bool:
 
 
 def inspect(project_name: str) -> Compose:
+    """
+    Parse docker-compose project by name.
+    It doesn't matter which working directory is used for the module,
+    the function will inspect project metadata to find source manifests.
+    """
     # get config files
     res = run(
         [
@@ -126,6 +162,9 @@ def inspect(project_name: str) -> Compose:
 
 
 def template_local(file: Union[str, Path], **args) -> str:
+    """
+    Read local (to current module) file and template it using %%<key>%% format.
+    """
     file = Path(__file__).parent / file
     content = file.read_text()
     for k, v in args.items():
@@ -134,10 +173,16 @@ def template_local(file: Union[str, Path], **args) -> str:
 
 
 def header_script(**args) -> str:
+    """
+    Generate archive header script.
+    """
     return template_local("header.sh", **args)
 
 
 def backup_volume(volume: Union[str, Path], output: Path, image="busybox"):
+    """
+    Backup single volume using tar and temporary docker container.
+    """
     output = output.absolute()
     archive_name = output.name
     mount_path = output.parent
@@ -167,6 +212,9 @@ def backup_volume(volume: Union[str, Path], output: Path, image="busybox"):
 
 
 def archive_dir(path: Path, output: Path):
+    """
+    Archive and compress directory using tar with gzip
+    """
     run(
         ["tar", "-C", path.absolute(), "-zcf", output.absolute(), "."],
         check=True,
@@ -174,6 +222,10 @@ def archive_dir(path: Path, output: Path):
 
 
 def encrypt(path: Path, output: Path, passphrase: str):
+    """
+    Encrypt file using gpg with provided passphrase (symmetric key) and writes encrypted content
+    to new file (output).
+    """
     run(
         [
             "gpg",
@@ -191,6 +243,9 @@ def encrypt(path: Path, output: Path, passphrase: str):
 
 
 def make_executable(path: Path):
+    """
+    Make file executable. Same as chmod +x
+    """
     st = path.stat()
     path.chmod(st.st_mode | stat.S_IEXEC)
 
@@ -200,6 +255,9 @@ def gen_scripts(
     info: Compose,
     sources: List[Path],
 ):
+    """
+    Generate restoration scripts.
+    """
     src_args = " ".join(f"-f {p.name!r}" for p in sources)
     if len(sources) == 1 and sources[0].name in (
         "docker-compose.yaml",
@@ -226,6 +284,10 @@ def backup(
     password: Union[str, None] = None,
     skip_images=False,
 ):
+    """
+    Backup docker compose project. It includes volumes, images, mounted directories and files and envs.
+    Genrates encrypted self-executable archive.
+    """
     output = output.absolute()
     output.parent.mkdir(parents=True, exist_ok=True)
 
@@ -329,6 +391,9 @@ def backup(
 
 
 def main():
+    """
+    CLI wrapper for backup
+    """
     from argparse import ArgumentParser
     from os import getenv
 
