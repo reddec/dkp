@@ -37,9 +37,15 @@ For restore you need:
 
 ## Installation
 
+**Recomended**
+
     pip install dkp
 
 Alternative - just download [dkp/dkp.py] and make it executable.
+
+**Docker**
+
+    docker run --rm -e PASSPHRASE=foobar -v $(pwd):/data ghcr.io/reddec/dkp -o /data/backup.bin <project>
 
 ## Backward compatibility
 

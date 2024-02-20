@@ -354,7 +354,7 @@ def main():
     )
     args = parser.parse_args()
     assert (
-        args.passphrase is not None
+        args.passphrase is not None and args.passphrase != ""
     ), "Passphrase is not set via argument neither via PASSPHRASE environment variable"
 
     backup(
