@@ -1,6 +1,6 @@
 # DKP - DocKer compose Packer
 
-![PyPI - Version](https://img.shields.io/pypi/v/dkp)
+![PyPI - Version](https://img.shields.io/pypi/v/dkp?link=https%3A%2F%2Fpypi.org%2Fproject%2Fdkp%2F)
 
 Packs existent docker-compose project in executable single encrypted (GPG
 AES256) archive (tar + gz). It means, that you don't need to install DKP or
