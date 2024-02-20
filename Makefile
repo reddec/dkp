@@ -2,7 +2,7 @@ NEXT_MINOR := $(shell git describe --tags | head -n 1 | python3 -u -c 'x = input
 NEXT_PATCH := $(shell git describe --tags | head -n 1 | python3 -u -c 'x = input().split("-")[0].split("."); x[-1] = str(int(x[-1])+1); print(".".join(x))')
 
 test:
-	 --noprofile --norc -eo pipefail
+	cat .github/workflows/release.yaml | yq '.jobs.test.steps[].run // "" ' | bash --noprofile --norc -eo pipefail
 
 bump-patch:
 	poetry version "$(NEXT_PATCH)"
