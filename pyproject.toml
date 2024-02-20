@@ -1,13 +1,13 @@
 [tool.poetry]
 name = "dkp"
-version = "0.0.6"
+version = "v0.1.0"
 description = "DocKer compose Packer"
 authors = ["Aleksandr Baryshnikov <owner@reddec.net>"]
 license = "MIT"
 readme = "README.md"
 
 [tool.poetry.dependencies]
-python = ">=3.9"
+python = ">=3.8"
 
 [tool.poetry.scripts]
 dkp = "dkp:main"

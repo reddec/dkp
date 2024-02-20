@@ -2,11 +2,11 @@
 
 ![PyPI - Version](https://img.shields.io/pypi/v/dkp)
 
-Packs existent docker-compose project in self-complete single file ecnrypted
-(GPG AES256) archive (tar + gz). It means, that you don't need to install DKP or
-remember details during restoration which drammaticaly reduces stress and make
-your life simpler. In the end - it's hard to remember how to restore backup made
-by N generations of adminsitrators years ago before you...
+Packs existent docker-compose project in executable single encrypted (GPG
+AES256) archive (tar + gz). It means, that you don't need to install DKP or
+remember procedure details during restore which dramatically reduces stress and
+make your life simpler. In the end - it's hard to remember how to restore backup
+made by N generations of administrators years ago before you...
 
 The pipeline is:
 
@@ -41,7 +41,7 @@ For restore you need:
 
     pip install dkp
 
-Alternative - just download [dkp/dkp.py] and make it executable.
+Alternative - just download [dkp/dkp.py](dkp/dkp.py) and make it executable.
 
 ## Backward compatibility
 
