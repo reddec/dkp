@@ -124,7 +124,7 @@ def header_script(**args) -> str:
     return template_local("header.sh", **args)
 
 
-def backup_volume(volume: str | Path, output: Path, image="busybox"):
+def backup_volume(volume: Union[str, Path], output: Path, image="busybox"):
     output = output.absolute()
     archive_name = output.name
     mount_path = output.parent
@@ -210,7 +210,7 @@ def gen_scripts(
 def backup(
     project_name: str,
     output: Path,
-    password: str | None = None,
+    password: Union[str, None] = None,
     skip_images=False,
 ):
     output = output.absolute()
