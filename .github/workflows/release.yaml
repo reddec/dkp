@@ -90,7 +90,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           tag: ${{ github.ref_name }}
         run: |
-          gh release create --generate-notes "$tag" dist/*
+          gh release create --notes-from-tag "$tag" dist/*
 
       - name: Publish package
         uses: pypa/gh-action-pypi-publish@release/v1
