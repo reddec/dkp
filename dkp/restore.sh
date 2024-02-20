@@ -10,6 +10,12 @@ if [ -d images ]; then
 fi
 
 if [ -d volumes ]; then
+    if [ "$START_AFTER_RESTORE" = "1" ]; then
+        echo "Pre-creating project..."
+        cd "project/%%PROJECT_NAME%%"
+        docker compose -p "%%PROJECT_NAME%%" %%SOURCE_ARGS%% create
+        cd ../..
+    fi
     echo "Restoring volumes..."
     find volumes -name '*.tar' | while read file; do
         VOLUME="$(basename "$file" .tar)"
