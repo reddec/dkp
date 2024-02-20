@@ -1,5 +1,5 @@
-NEXT_MINOR := $(shell git describe --tags | head -n 1 | python3 -u -c 'x = input().split("."); x[-2] = str(int(x[-2])+1); x[-1] = "0"; print(".".join(x))')
-NEXT_PATCH := $(shell git describe --tags | head -n 1 | python3 -u -c 'x = input().split("."); x[-1] = str(int(x[-1])+1); print(".".join(x))')
+NEXT_MINOR := $(shell git describe --tags | head -n 1 | python3 -u -c 'x = input().split("-")[0].split("."); x[-2] = str(int(x[-2])+1); x[-1] = "0"; print(".".join(x))')
+NEXT_PATCH := $(shell git describe --tags | head -n 1 | python3 -u -c 'x = input().split("-")[0].split("."); x[-1] = str(int(x[-1])+1); print(".".join(x))')
 
 test:
 	 --noprofile --norc -eo pipefail
