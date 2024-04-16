@@ -85,7 +85,7 @@ if [ "$RESTORE" = "1" ]; then
     export START_AFTER_RESTORE="$START"
     exec "./$PROJECT_NAME/restore.sh"
 else
-    echo "unpacking complete; use the command bellow to restore project"
+    echo "unpacking complete; use the command below to restore project"
     echo ""
     echo "    ./$PROJECT_NAME/restore.sh"
     echo ""

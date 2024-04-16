@@ -30,7 +30,7 @@ if [ "$START_AFTER_RESTORE" = "1" ]; then
     cd "project/%%PROJECT_NAME%%"
     docker compose -p "%%PROJECT_NAME%%" %%SOURCE_ARGS%% up -d
 else
-    echo "Restore complete. Use command bellow to start project"
+    echo "Restore complete. Use command below to start project"
     echo ""
     echo "    cd project/%%PROJECT_NAME%%"
     echo "   " docker compose %%SOURCE_ARGS%% up -d

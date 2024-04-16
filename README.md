@@ -3,8 +3,8 @@
 [![PyPI - Version](https://img.shields.io/pypi/v/dkp)](https://pypi.org/project/dkp/)
 
 Packs existent docker-compose project in executable single encrypted (GPG
-AES256) archive (tar + gz). It means, that you don't need to install DKP or
-remember procedure details during restore which dramatically reduces stress and
+AES256) archive (tar + gz). It means that you don't need to install DKP or
+remember procedure details during restore, which dramatically reduces stress and
 make your life simpler. In the end - it's hard to remember how to restore backup
 made by N generations of administrators years ago before you...
 
@@ -37,7 +37,7 @@ For restore you need:
 
 ## Installation
 
-**Recomended**
+**Recommended**
 
     pip install dkp
 
