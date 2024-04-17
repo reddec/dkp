@@ -28,14 +28,6 @@ class Compose:
         """
         return self.parsed["name"]
 
-    @property
-    def env_file(self) -> Path:
-        """
-        Path to default env file.
-        The function doesn't check existence of the file.
-        """
-        return self.files[0].parent / ".env"
-
     @cached_property
     def environments(self) -> Dict[str, Dict]:
         """
@@ -360,7 +352,7 @@ def backup(
                 "- copying to",
                 env_file.relative_to(work_dir),
             )
-            fs_copy(info.env_file, env_file)
+            fs_copy(file.name, env_file)
 
         # add restore script
         gen_scripts(work_dir, info, sources)
