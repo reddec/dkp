@@ -56,9 +56,11 @@ final archive, but it will not affect previous backups.
 ### Create backup
 
 ```
-usage: dkp [-h] [--output OUTPUT] [--skip-images] [--passphrase PASSPHRASE] [project]
+usage: dkp [-h] [--output OUTPUT] [--skip-images] [--all-images]
+           [--passphrase PASSPHRASE] [--env-file [ENV_FILE ...]]
+           [project]
 
-DocKer compose Packer - backup compose project with all batteries included
+Docker Compose packer - pack compose project with all batteries included
 
 positional arguments:
   project               Compose project name. Default is docker-compose-pack
@@ -68,9 +70,28 @@ options:
   --output OUTPUT, -o OUTPUT
                         Output file. Default docker-compose-pack.bin
   --skip-images, -S     Do not archive images
+  --all-images          Export all images. Without this option, only the
+                        images of those services are exported that have an
+                        'image' key in the compose file.
   --passphrase PASSPHRASE, -p PASSPHRASE
-                        Passphrase to encrypt backup. Can be set via env PASSPHRASE
+                        Passphrase to encrypt backup. Can be set via env
+                        PASSPHRASE
+  --env-file [ENV_FILE ...]
+                        Environment file(s) that should be passed to Compose
+                        with '--env-file'
 ```
+
+Caveat: The `--env-file` option works according to the default behavior of the
+`argparse` module, not according to the Docker CLI conventions.
+
+1.  You should pass the `--env-file` option only once, and enumerate the files
+    afterwards (`--env-file env1 env2`). If you write `--env-file env1
+    --env-file env2`, the second option overwrites the first, and only `env2` is
+    used.
+
+2.  You can use `--` before the project name when you use `--env-file` before
+    it. This might be necessary because `--env-file env project` means that you
+    have two env files (one called `env` and the other called `project`).
 
 ### Restore
 

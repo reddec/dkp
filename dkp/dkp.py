@@ -20,6 +20,8 @@ class Compose:
     parsed: Dict
     # list of source compose files
     files: List[Path]
+    # list of environment files
+    env_files: List[Path]
 
     @property
     def name(self) -> str:
@@ -109,7 +111,7 @@ def is_relative_to(src: Path, dest: Path) -> bool:
         return False
 
 
-def inspect(project_name: str) -> Compose:
+def inspect(project_name: str, env_files: List[Path]) -> Compose:
     """
     Parse docker-compose project by name.
     It doesn't matter which working directory is used for the module,
@@ -140,6 +142,8 @@ def inspect(project_name: str) -> Compose:
         file = Path(x.strip()).absolute()
         files.append(file)
         args += ["-f", file]
+    for env_file in env_files:
+        args += ['--env-file', env_file]
 
     parsed = json.loads(
         run(
@@ -150,7 +154,7 @@ def inspect(project_name: str) -> Compose:
             capture_output=True,
         ).stdout
     )
-    return Compose(parsed=parsed, files=files)
+    return Compose(parsed=parsed, files=files, env_files=env_files)
 
 
 def template_local(file: Union[str, Path], **args) -> str:
@@ -259,15 +263,33 @@ def gen_scripts(
         nice_args = ""
     else:
         nice_args = " " + src_args
+
+    for env_file in info.env_files:
+        nice_args += f" --env-file '{env_file}'"
+
     restore = work_dir / "restore.sh"
     restore.write_text(
         template_local(
             "restore.sh",
             PROJECT_NAME=info.name,
-            SOURCE_ARGS=nice_args,
+            SOURCE_ARGS=nice_args
         )
     )
     make_executable(restore)
+
+
+def copy_env_file(source: Path, target: Path, work_dir: Path):
+    """
+    Copy an env file from one location to another.
+    """
+    target.parent.mkdir(exist_ok=True, parents=True)
+    print(
+        "found env file",
+        source.name,
+        "- copying to",
+        target.relative_to(work_dir),
+    )
+    fs_copy(source.name, target)
 
 
 def backup(
@@ -275,6 +297,7 @@ def backup(
     output: Path,
     password: Union[str, None] = None,
     skip_images=False,
+    env_files: List[Path] = [],
 ):
     """
     Backup docker compose project. It includes volumes, images, mounted directories and files and envs.
@@ -283,7 +306,7 @@ def backup(
     output = output.absolute()
     output.parent.mkdir(parents=True, exist_ok=True)
 
-    info = inspect(project_name)
+    info = inspect(project_name, env_files)
     sources: List[Path] = []
     images: List[Path] = []
     with TemporaryDirectory(
@@ -338,21 +361,21 @@ def backup(
                 fs_copy(bind, dest_path, follow_symlinks=True)
 
         # copy env files
-        file: Path
-        for file in info.work_dir.iterdir():
-            if (
-                file.name != ".env" and file.suffix != ".env"
-            ) or file.resolve().is_dir():
-                continue
-            env_file = project_dir / file.name
-            env_file.parent.mkdir(exist_ok=True, parents=True)
-            print(
-                "found env file",
-                file.name,
-                "- copying to",
-                env_file.relative_to(work_dir),
-            )
-            fs_copy(file.name, env_file)
+        if env_files == []:
+            file: Path
+            for file in info.work_dir.iterdir():
+                if (
+                    file.name != ".env" and file.suffix != ".env"
+                ) or file.resolve().is_dir():
+                    continue
+                copy_env_file(file, project_dir / file.name, Path(work_dir))
+        else:
+            env_file: Path
+            for env_file in env_files:
+                copy_env_file(
+                    env_file,
+                    project_dir / env_file.name,
+                    Path(work_dir))
 
         # add restore script
         gen_scripts(work_dir, info, sources)
@@ -417,6 +440,12 @@ def main():
         help="Passphrase to encrypt backup. Can be set via env PASSPHRASE",
     )
     parser.add_argument(
+        "--env-file",
+        nargs="*",
+        default=[],
+        help="Environment file(s) that should be passed to Compose with '--env-file'",
+    )
+    parser.add_argument(
         "project",
         nargs="?",
         default=default_project,
@@ -427,11 +456,13 @@ def main():
         args.passphrase is not None and args.passphrase != ""
     ), "Passphrase is not set via argument neither via PASSPHRASE environment variable"
 
+    env_files = [Path(env_file) for env_file in args.env_file]
     backup(
         args.project,
         args.output,
         password=args.passphrase,
         skip_images=args.skip_images,
+        env_files=env_files
     )
 
 
