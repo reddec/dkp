@@ -133,7 +133,7 @@ def inspect(project_name: str) -> Compose:
             "json",
             "-a",
             "--filter",
-            f"Name={project_name}",
+            f"Name=^{project_name}$",
         ],
         check=True,
         capture_output=True,
