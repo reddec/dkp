@@ -143,7 +143,7 @@ def inspect(project_name: str) -> Compose:
 
     parsed = json.loads(
         run(
-            ["docker", "compose"]
+            ["docker", "compose", "-p", project_name]
             + args
             + ["config", "--no-interpolate", "--format", "json"],
             check=True,
