@@ -223,7 +223,7 @@ def backup_volume(volume: Union[str, Path], output: Path, image="busybox"):
     output = output.absolute()
     archive_name = output.name
     mount_path = output.parent
-    args = []
+    args: List[str] = []
     run(
         [
             "docker",
@@ -336,7 +336,7 @@ def copy_env_file(source: Path, target: Path, work_dir: Path):
 def backup(
     project_name: str,
     output: Path,
-    password: Union[str, None] = None,
+    password: str,
     skip_images=False,
     all_images: bool = False,
     env_files: List[Path] = [],
@@ -353,8 +353,8 @@ def backup(
     images: List[Path] = []
     with TemporaryDirectory(
         dir=output.parent, prefix=f".{project_name}.", suffix=".pack.tmp"
-    ) as work_dir:
-        root_dir = Path(work_dir)
+    ) as work_dir_str:
+        root_dir = Path(work_dir_str)
         # add top-level dir for simpler unpacking
         work_dir = root_dir / project_name
 
