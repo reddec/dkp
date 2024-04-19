@@ -18,8 +18,21 @@ from typing import Dict, List, Set, Union
 class Compose:
     # parsed compose file (aggregated)
     parsed: Dict
+
+    # parsed output of "docker compose images"
+    # Entry example:
+    #  {
+    #    "ID": "sha256:ba5dc23f6...",
+    #    "ContainerName": "test-data-dummy-1",
+    #    "Repository": "busybox",
+    #    "Tag": "latest",
+    #    "Size": 4261550
+    #  },
+    parsed_images: List[Dict]
+
     # list of source compose files
     files: List[Path]
+
     # list of environment files
     env_files: List[Path]
 
@@ -91,6 +104,11 @@ class Compose:
             image = service.get("image")
             if image is not None:
                 ans.add(image)
+        for image_entry in self.parsed_images:
+            repository = image_entry.get("Repository")
+            tag = image_entry.get("Tag")
+            image = f'{repository}:{tag}'
+            ans.add(image)
         return ans
 
 
@@ -111,7 +129,11 @@ def is_relative_to(src: Path, dest: Path) -> bool:
         return False
 
 
-def inspect(project_name: str, env_files: List[Path]) -> Compose:
+def inspect(
+    project_name: str,
+    all_images: bool,
+    env_files: List[Path]
+) -> Compose:
     """
     Parse docker-compose project by name.
     It doesn't matter which working directory is used for the module,
@@ -136,7 +158,7 @@ def inspect(project_name: str, env_files: List[Path]) -> Compose:
     assert len(items) > 0, f"project {project_name} not found"
 
     # normalize and parse
-    args = []
+    args: List[Union[str, Path]] = []
     files: List[Path] = []
     for x in items[0]["ConfigFiles"].split(","):
         file = Path(x.strip()).absolute()
@@ -154,7 +176,26 @@ def inspect(project_name: str, env_files: List[Path]) -> Compose:
             capture_output=True,
         ).stdout
     )
-    return Compose(parsed=parsed, files=files, env_files=env_files)
+
+    if all_images:
+        parsed_images = json.loads(
+            run(
+                ["docker", "compose", "-p", project_name]
+                + args
+                + ["images", "--format", "json"],
+                check=True,
+                capture_output=True,
+            ).stdout
+        )
+    else:
+        parsed_images = []
+
+    return Compose(
+        parsed=parsed,
+        parsed_images=parsed_images,
+        files=files,
+        env_files=env_files
+    )
 
 
 def template_local(file: Union[str, Path], **args) -> str:
@@ -297,6 +338,7 @@ def backup(
     output: Path,
     password: Union[str, None] = None,
     skip_images=False,
+    all_images: bool = False,
     env_files: List[Path] = [],
 ):
     """
@@ -306,7 +348,7 @@ def backup(
     output = output.absolute()
     output.parent.mkdir(parents=True, exist_ok=True)
 
-    info = inspect(project_name, env_files)
+    info = inspect(project_name, all_images, env_files)
     sources: List[Path] = []
     images: List[Path] = []
     with TemporaryDirectory(
@@ -434,6 +476,14 @@ def main():
         default=False,
     )
     parser.add_argument(
+        "--all-images",
+        action="store_true",
+        default=False,
+        help=("""Export all images. Without this option, only the images of
+              those services are exported that have an 'image' key in the
+              compose file."""),
+    )
+    parser.add_argument(
         "--passphrase",
         "-p",
         default=getenv("PASSPHRASE"),
@@ -462,6 +512,7 @@ def main():
         args.output,
         password=args.passphrase,
         skip_images=args.skip_images,
+        all_images=args.all_images,
         env_files=env_files
     )
 
