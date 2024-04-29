@@ -319,20 +319,6 @@ def gen_scripts(
     make_executable(restore)
 
 
-def copy_env_file(source: Path, target: Path, work_dir: Path):
-    """
-    Copy an env file from one location to another.
-    """
-    target.parent.mkdir(exist_ok=True, parents=True)
-    print(
-        "found env file",
-        source.name,
-        "- copying to",
-        target.relative_to(work_dir),
-    )
-    fs_copy(source.name, target)
-
-
 def backup(
     project_name: str,
     output: Path,
@@ -402,22 +388,36 @@ def backup(
                 dest_path.parent.mkdir(exist_ok=True, parents=True)
                 fs_copy(bind, dest_path, follow_symlinks=True)
 
-        # copy env files
-        if env_files == []:
-            file: Path
-            for file in info.work_dir.iterdir():
-                if (
-                    file.name != ".env" and file.suffix != ".env"
-                ) or file.resolve().is_dir():
-                    continue
-                copy_env_file(file, project_dir / file.name, Path(work_dir))
-        else:
-            env_file: Path
-            for env_file in env_files:
-                copy_env_file(
-                    env_file,
-                    project_dir / env_file.name,
-                    Path(work_dir))
+        # Collect env files.
+        #
+        # All file names in "all_env_files" are absolute and resolved for
+        # symbolic links.
+        all_env_files: set[Path] = {file.resolve() for file in env_files}
+
+        # Use the default env file (called .env) if it exists and no custom env
+        # file was specified with "--env-file".
+        dot_env: Path = (info.work_dir / '.env').resolve()
+        if env_files == [] and dot_env.is_file():
+            all_env_files.add(dot_env)
+
+        # Add "*.env" files. Probably they are used in the "env_file" attribute
+        # of the composed file.
+        for file in info.work_dir.iterdir():
+            if (file.suffix == ".env") and file.resolve().is_file():
+                all_env_files.add(file.resolve())
+
+        # Copy the collected env files
+        env_file: Path
+        for env_file in sorted(all_env_files):
+            if not is_relative_to(info.work_dir, env_file.resolve()):
+                print(f"skipping env file {env_file} - outside of the project directory")
+                continue
+            rel_target_path: Path = env_file.absolute().relative_to(info.work_dir.absolute())
+            target: Path = project_dir / rel_target_path
+            target.parent.mkdir(exist_ok=True, parents=True)
+            print(f"copying env file {env_file.name} to "
+                  f"{target.relative_to(work_dir)}")
+            fs_copy(env_file.name, target)
 
         # add restore script
         gen_scripts(work_dir, info, sources)
