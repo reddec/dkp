@@ -11,7 +11,7 @@ from datetime import datetime
 from dataclasses import dataclass
 from functools import cached_property
 from pathlib import Path
-from typing import Dict, List, Set, Union
+from typing import Dict, List, Optional, Set, Union
 
 
 @dataclass
@@ -322,7 +322,7 @@ def gen_scripts(
 def backup(
     project_name: str,
     output: Path,
-    password: str,
+    password: Optional[str],
     skip_images=False,
     all_images: bool = False,
     env_files: List[Path] = [],
@@ -426,11 +426,13 @@ def backup(
         archive_file = output.with_name(output.name + ".tar.gz")
         archive_dir(root_dir.absolute(), archive_file)
 
-        print("encrypting...")
-        encrypted_file = output.with_name(archive_file.name + ".gpg")
-        encrypt(archive_file, encrypted_file, password)
-        # replace archive
-        fs_move(encrypted_file, archive_file)
+        if password:
+            print("encrypting...")
+            encrypted_file = output.with_name(archive_file.name + ".gpg")
+            encrypt(archive_file, encrypted_file, password)
+            # replace archive
+            fs_move(encrypted_file, archive_file)
+
         print("finalizing...")
         # create self extract script
         with output.open("wb") as out, archive_file.open("rb") as archive:
@@ -502,9 +504,9 @@ def main():
         help=f"Compose project name. Default is {default_project}",
     )
     args = parser.parse_args()
-    assert (
-        args.passphrase is not None and args.passphrase != ""
-    ), "Passphrase is not set via argument neither via PASSPHRASE environment variable"
+
+    if args.passphrase == "":
+        args.passphrase = None
 
     env_files = [Path(env_file) for env_file in args.env_file]
     backup(

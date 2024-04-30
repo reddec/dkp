@@ -106,3 +106,54 @@ Usage:
   -r, --restore    Automatically restore project after unpacking
   -s, --start      Automatically start project after unpacking. Implicitly enables --restore
 ```
+
+## Troubleshooting
+
+# Error when restoring: "gzip: stdin: not in gzip format"
+
+*   Symptom: The following error is printed when trying to restore a pack.
+
+    ```
+    $ ./test.pack
+    unpacking to test-data
+
+    gzip: stdin: not in gzip format
+    tar: Child died with signal 13
+    tar: Error is not recoverable: exiting now
+    ```
+
+*   Reason: The pack is protected with a passphrase using GPG. Run the same pack
+    file with a passphrase:
+
+    ```
+    $ ./test.pack [passphrase]
+    ```
+
+    Or:
+
+    ```
+    $ PASSPHRASE=my_passphrase ./test.pack
+    ```
+
+# Error when restoring: "gpg: no valid OpenPGP data found"
+
+*   Symptom: The following error is printed when trying to restore a pack.
+
+    ```
+    $ ./test.pack my_passphrase
+    decrypting and unpacking to test-data
+    gpg: no valid OpenPGP data found.
+    gpg: decrypt_message failed: Unknown system error
+
+    gzip: stdin: unexpected end of file
+    tar: Child returned status 1
+    tar: Error is not recoverable: exiting now
+    ```
+
+*   Reason: The pack is *not* protected with a passphrase. Run the same pack
+    file without a passphrase, and ensure that the `PASSPHRASE` environment
+    variable is not set (or set to an empty string).
+
+    ```
+    $ ./test.pack
+    ```
