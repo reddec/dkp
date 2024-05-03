@@ -63,9 +63,12 @@ check_command() {
 }
 
 check_command tar
-check_command gpg
 check_command gzip
 check_command sed
+
+if [ "1$PASSPHRASE" != "1" ]; then
+    check_command gpg
+fi
 
 if [ "$CHECK" = "0" ]; then
     echo "Preconditions failed"
@@ -73,19 +76,19 @@ if [ "$CHECK" = "0" ]; then
 fi
 
 if [ "1$PASSPHRASE" = "1" ]; then
-    echo "Decryption key is not set via argument neither via environment variable PASSPHRASE"
-    exit 2
+    echo "unpacking to $PROJECT_NAME"
+    sed '0,/^#EOF#$/d' "$ARCHIVE" | tar zx
+else
+    echo "decrypting and unpacking to $PROJECT_NAME"
+    sed '0,/^#EOF#$/d' "$ARCHIVE" | gpg --batch --yes --passphrase "$PASSPHRASE" --output - --decrypt - | tar zx
 fi
-
-echo "decrypting and unpacking to $PROJECT_NAME"
-sed '0,/^#EOF#$/d' "$ARCHIVE" | gpg --batch --yes --passphrase "$PASSPHRASE" --output - --decrypt - | tar zx
 
 if [ "$RESTORE" = "1" ]; then
     echo "restoring..."
     export START_AFTER_RESTORE="$START"
     exec "./$PROJECT_NAME/restore.sh"
 else
-    echo "unpacking complete; use the command bellow to restore project"
+    echo "unpacking complete; use the command below to restore project"
     echo ""
     echo "    ./$PROJECT_NAME/restore.sh"
     echo ""

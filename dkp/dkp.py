@@ -11,15 +11,30 @@ from datetime import datetime
 from dataclasses import dataclass
 from functools import cached_property
 from pathlib import Path
-from typing import Dict, List, Set, Union
+from typing import Dict, List, Optional, Set, Union
 
 
 @dataclass
 class Compose:
     # parsed compose file (aggregated)
     parsed: Dict
+
+    # parsed output of "docker compose images"
+    # Entry example:
+    #  {
+    #    "ID": "sha256:ba5dc23f6...",
+    #    "ContainerName": "test-data-dummy-1",
+    #    "Repository": "busybox",
+    #    "Tag": "latest",
+    #    "Size": 4261550
+    #  },
+    parsed_images: List[Dict]
+
     # list of source compose files
     files: List[Path]
+
+    # list of environment files
+    env_files: List[Path]
 
     @property
     def name(self) -> str:
@@ -27,14 +42,6 @@ class Compose:
         Normalized project name
         """
         return self.parsed["name"]
-
-    @property
-    def env_file(self) -> Path:
-        """
-        Path to default env file.
-        The function doesn't check existence of the file.
-        """
-        return self.files[0].parent / ".env"
 
     @cached_property
     def environments(self) -> Dict[str, Dict]:
@@ -97,6 +104,11 @@ class Compose:
             image = service.get("image")
             if image is not None:
                 ans.add(image)
+        for image_entry in self.parsed_images:
+            repository = image_entry.get("Repository")
+            tag = image_entry.get("Tag")
+            image = f'{repository}:{tag}'
+            ans.add(image)
         return ans
 
 
@@ -117,7 +129,11 @@ def is_relative_to(src: Path, dest: Path) -> bool:
         return False
 
 
-def inspect(project_name: str) -> Compose:
+def inspect(
+    project_name: str,
+    all_images: bool,
+    env_files: List[Path]
+) -> Compose:
     """
     Parse docker-compose project by name.
     It doesn't matter which working directory is used for the module,
@@ -133,7 +149,7 @@ def inspect(project_name: str) -> Compose:
             "json",
             "-a",
             "--filter",
-            f"Name={project_name}",
+            f"Name=^{project_name}$",
         ],
         check=True,
         capture_output=True,
@@ -142,23 +158,44 @@ def inspect(project_name: str) -> Compose:
     assert len(items) > 0, f"project {project_name} not found"
 
     # normalize and parse
-    args = []
+    args: List[Union[str, Path]] = []
     files: List[Path] = []
     for x in items[0]["ConfigFiles"].split(","):
         file = Path(x.strip()).absolute()
         files.append(file)
         args += ["-f", file]
+    for env_file in env_files:
+        args += ['--env-file', env_file]
 
     parsed = json.loads(
         run(
-            ["docker", "compose"]
+            ["docker", "compose", "-p", project_name]
             + args
             + ["config", "--no-interpolate", "--format", "json"],
             check=True,
             capture_output=True,
         ).stdout
     )
-    return Compose(parsed=parsed, files=files)
+
+    if all_images:
+        parsed_images = json.loads(
+            run(
+                ["docker", "compose", "-p", project_name]
+                + args
+                + ["images", "--format", "json"],
+                check=True,
+                capture_output=True,
+            ).stdout
+        )
+    else:
+        parsed_images = []
+
+    return Compose(
+        parsed=parsed,
+        parsed_images=parsed_images,
+        files=files,
+        env_files=env_files
+    )
 
 
 def template_local(file: Union[str, Path], **args) -> str:
@@ -186,7 +223,7 @@ def backup_volume(volume: Union[str, Path], output: Path, image="busybox"):
     output = output.absolute()
     archive_name = output.name
     mount_path = output.parent
-    args = []
+    args: List[str] = []
     run(
         [
             "docker",
@@ -267,12 +304,16 @@ def gen_scripts(
         nice_args = ""
     else:
         nice_args = " " + src_args
+
+    for env_file in info.env_files:
+        nice_args += f" --env-file '{env_file}'"
+
     restore = work_dir / "restore.sh"
     restore.write_text(
         template_local(
             "restore.sh",
             PROJECT_NAME=info.name,
-            SOURCE_ARGS=nice_args,
+            SOURCE_ARGS=nice_args
         )
     )
     make_executable(restore)
@@ -281,8 +322,10 @@ def gen_scripts(
 def backup(
     project_name: str,
     output: Path,
-    password: Union[str, None] = None,
+    password: Optional[str],
     skip_images=False,
+    all_images: bool = False,
+    env_files: List[Path] = [],
 ):
     """
     Backup docker compose project. It includes volumes, images, mounted directories and files and envs.
@@ -291,13 +334,13 @@ def backup(
     output = output.absolute()
     output.parent.mkdir(parents=True, exist_ok=True)
 
-    info = inspect(project_name)
+    info = inspect(project_name, all_images, env_files)
     sources: List[Path] = []
     images: List[Path] = []
     with TemporaryDirectory(
         dir=output.parent, prefix=f".{project_name}.", suffix=".pack.tmp"
-    ) as work_dir:
-        root_dir = Path(work_dir)
+    ) as work_dir_str:
+        root_dir = Path(work_dir_str)
         # add top-level dir for simpler unpacking
         work_dir = root_dir / project_name
 
@@ -345,22 +388,36 @@ def backup(
                 dest_path.parent.mkdir(exist_ok=True, parents=True)
                 fs_copy(bind, dest_path, follow_symlinks=True)
 
-        # copy env files
-        file: Path
+        # Collect env files.
+        #
+        # All file names in "all_env_files" are absolute and resolved for
+        # symbolic links.
+        all_env_files: set[Path] = {file.resolve() for file in env_files}
+
+        # Use the default env file (called .env) if it exists and no custom env
+        # file was specified with "--env-file".
+        dot_env: Path = (info.work_dir / '.env').resolve()
+        if env_files == [] and dot_env.is_file():
+            all_env_files.add(dot_env)
+
+        # Add "*.env" files. Probably they are used in the "env_file" attribute
+        # of the composed file.
         for file in info.work_dir.iterdir():
-            if (
-                file.name != ".env" and file.suffix != ".env"
-            ) or file.resolve().is_dir():
+            if (file.suffix == ".env") and file.resolve().is_file():
+                all_env_files.add(file.resolve())
+
+        # Copy the collected env files
+        env_file: Path
+        for env_file in sorted(all_env_files):
+            if not is_relative_to(info.work_dir, env_file.resolve()):
+                print(f"skipping env file {env_file} - outside of the project directory")
                 continue
-            env_file = project_dir / file.name
-            env_file.parent.mkdir(exist_ok=True, parents=True)
-            print(
-                "found env file",
-                file.name,
-                "- copying to",
-                env_file.relative_to(work_dir),
-            )
-            fs_copy(info.env_file, env_file)
+            rel_target_path: Path = env_file.absolute().relative_to(info.work_dir.absolute())
+            target: Path = project_dir / rel_target_path
+            target.parent.mkdir(exist_ok=True, parents=True)
+            print(f"copying env file {env_file.name} to "
+                  f"{target.relative_to(work_dir)}")
+            fs_copy(env_file.name, target)
 
         # add restore script
         gen_scripts(work_dir, info, sources)
@@ -369,11 +426,13 @@ def backup(
         archive_file = output.with_name(output.name + ".tar.gz")
         archive_dir(root_dir.absolute(), archive_file)
 
-        print("encrypting...")
-        encrypted_file = output.with_name(archive_file.name + ".gpg")
-        encrypt(archive_file, encrypted_file, password)
-        # replace archive
-        fs_move(encrypted_file, archive_file)
+        if password:
+            print("encrypting...")
+            encrypted_file = output.with_name(archive_file.name + ".gpg")
+            encrypt(archive_file, encrypted_file, password)
+            # replace archive
+            fs_move(encrypted_file, archive_file)
+
         print("finalizing...")
         # create self extract script
         with output.open("wb") as out, archive_file.open("rb") as archive:
@@ -419,10 +478,24 @@ def main():
         default=False,
     )
     parser.add_argument(
+        "--all-images",
+        action="store_true",
+        default=False,
+        help=("""Export all images. Without this option, only the images of
+              those services are exported that have an 'image' key in the
+              compose file."""),
+    )
+    parser.add_argument(
         "--passphrase",
         "-p",
         default=getenv("PASSPHRASE"),
         help="Passphrase to encrypt backup. Can be set via env PASSPHRASE",
+    )
+    parser.add_argument(
+        "--env-file",
+        nargs="*",
+        default=[],
+        help="Environment file(s) that should be passed to Compose with '--env-file'",
     )
     parser.add_argument(
         "project",
@@ -431,15 +504,18 @@ def main():
         help=f"Compose project name. Default is {default_project}",
     )
     args = parser.parse_args()
-    assert (
-        args.passphrase is not None and args.passphrase != ""
-    ), "Passphrase is not set via argument neither via PASSPHRASE environment variable"
 
+    if args.passphrase == "":
+        args.passphrase = None
+
+    env_files = [Path(env_file) for env_file in args.env_file]
     backup(
         args.project,
         args.output,
         password=args.passphrase,
         skip_images=args.skip_images,
+        all_images=args.all_images,
+        env_files=env_files
     )
 
 
