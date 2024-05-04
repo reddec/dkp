@@ -417,7 +417,7 @@ def backup(
             target.parent.mkdir(exist_ok=True, parents=True)
             print(f"copying env file {env_file.name} to "
                   f"{target.relative_to(work_dir)}")
-            fs_copy(env_file.name, target)
+            fs_copy(env_file, target)
 
         # add restore script
         gen_scripts(work_dir, info, sources)
